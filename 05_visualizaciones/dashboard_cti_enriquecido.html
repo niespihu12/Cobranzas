@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard CTI Enriquecido - Banco de Bogotá</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+
+        const Dashboard = () => {
+            const [activeView, setActiveView] = useState('resumen');
+
+            // Datos del procesamiento real
+            const stats = {
+                totalRegistros: 7504,
+                clientesUnicos: 1,
+                conCampana: 6328,
+                sinCampana: 1176,
+                pctConCampana: 84.4
+            };
+
+            const segmentos = [
+                { id: 'A', nombre: 'Voicebot Prioritario', cantidad: 5211, pct: 69.4, color: '#10B981', accion: 'Llamar primero' },
+                { id: 'B', nombre: 'Voicebot + Seguimiento', cantidad: 1755, pct: 23.4, color: '#3B82F6', accion: 'Llamar con refuerzo' },
+                { id: 'C', nombre: 'Derivar a Humano', cantidad: 65, pct: 0.9, color: '#F59E0B', accion: 'Agente especializado' },
+                { id: 'D', nombre: 'No Gestionar Hoy', cantidad: 473, pct: 6.3, color: '#EF4444', accion: 'Ahorro de costo' }
+            ];
+
+            const campanasTop = [
+                { nombre: 'CAMP_CONS_AMP/PM DCTO_INT 100%', cantidad: 1729, mecanismo: 'Pago Mora / Ampliación' },
+                { nombre: 'CAMP_CONS_AMP/PM DCTO_INT100%UCI', cantidad: 905, mecanismo: 'Pago Mora / Ampliación' },
+                { nombre: 'PM_SIN_PAGO', cantidad: 464, mecanismo: 'Pago Mora sin pago' },
+                { nombre: 'CAMP_CONS_AMP/PM DCTO_INT 85%', cantidad: 291, mecanismo: 'Pago Mora / Ampliación' },
+                { nombre: 'PM_SIN_PAGO_BTASA 13%', cantidad: 211, mecanismo: 'Pago Mora sin pago' }
+            ];
+
+            const metricas = {
+                gacTotal: 644086395,
+                gacPromedio: 85832,
+                valorEsperado: 3898135830,
+                probPagoPromedio: 63.0,
+                sinPagoRequerido: 2101,
+                descuento100: 3175
+            };
+
+            const probabilidades = [
+                { rango: 'Alta (>70%)', cantidad: 2573, pct: 34.3, color: '#10B981' },
+                { rango: 'Media (40-70%)', cantidad: 4689, pct: 62.5, color: '#F59E0B' },
+                { rango: 'Baja (<40%)', cantidad: 242, pct: 3.2, color: '#EF4444' }
+            ];
+
+            const formatCurrency = (value) => {
+                return new Intl.NumberFormat('es-CO', {
+                    style: 'currency',
+                    currency: 'COP',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(value);
+            };
+
+            const formatNumber = (value) => {
+                return new Intl.NumberFormat('es-CO').format(value);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-6">
+                    {/* Header */}
+                    <div className="text-center mb-6">
+                        <h1 className="text-3xl font-bold mb-2">📊 Dashboard CTI Enriquecido</h1>
+                        <h2 className="text-xl text-blue-400">Voicebot de Cobranzas - Banco de Bogotá</h2>
+                        <p className="text-gray-400 text-sm mt-1">Procesamiento con Inteligencia Artificial</p>
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-gray-800 rounded-lg p-1 flex space-x-1">
+                            {[
+                                { id: 'resumen', label: '📈 Resumen' },
+                                { id: 'segmentos', label: '🎯 Segmentación' },
+                                { id: 'campanas', label: '🏷️ Campañas' },
+                                { id: 'valor', label: '💰 Valor' }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveView(tab.id)}
+                                    className={`px-5 py-2 rounded-md text-sm font-medium transition-all ${
+                                        activeView === tab.id 
+                                            ? 'bg-blue-600 text-white' 
+                                            : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto">
+                        {/* Vista Resumen */}
+                        {activeView === 'resumen' && (
+                            <div className="space-y-6">
+                                {/* KPIs principales */}
+                                <div className="grid grid-cols-4 gap-4">
+                                    <div className="bg-gray-800 rounded-xl p-4 text-center">
+                                        <div className="text-3xl mb-2">📋</div>
+                                        <div className="text-3xl font-bold text-blue-400">{formatNumber(stats.totalRegistros)}</div>
+                                        <div className="text-sm text-gray-400">Registros Procesados</div>
+                                    </div>
+                                    <div className="bg-gray-800 rounded-xl p-4 text-center">
+                                        <div className="text-3xl mb-2">🎯</div>
+                                        <div className="text-3xl font-bold text-green-400">{stats.pctConCampana}%</div>
+                                        <div className="text-sm text-gray-400">Con Campaña Especial</div>
+                                    </div>
+                                    <div className="bg-gray-800 rounded-xl p-4 text-center">
+                                        <div className="text-3xl mb-2">🎲</div>
+                                        <div className="text-3xl font-bold text-yellow-400">{metricas.probPagoPromedio}%</div>
+                                        <div className="text-sm text-gray-400">Prob. Pago Promedio</div>
+                                    </div>
+                                    <div className="bg-gray-800 rounded-xl p-4 text-center">
+                                        <div className="text-3xl mb-2">💵</div>
+                                        <div className="text-2xl font-bold text-green-400">{formatCurrency(metricas.valorEsperado)}</div>
+                                        <div className="text-sm text-gray-400">Valor Esperado Total</div>
+                                    </div>
+                                </div>
+
+                                {/* Distribución de segmentos */}
+                                <div className="bg-gray-800 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Distribución por Segmento ML</h3>
+                                    <div className="grid grid-cols-4 gap-4">
+                                        {segmentos.map(seg => (
+                                            <div key={seg.id} className="bg-gray-700 rounded-lg p-4 text-center" 
+                                                 style={{ borderLeft: `4px solid ${seg.color}` }}>
+                                                <div className="text-4xl font-bold" style={{ color: seg.color }}>
+                                                    {formatNumber(seg.cantidad)}
+                                                </div>
+                                                <div className="text-sm font-medium mt-1">Segmento {seg.id}</div>
+                                                <div className="text-xs text-gray-400">{seg.nombre}</div>
+                                                <div className="mt-2 text-xs bg-gray-600 rounded px-2 py-1">{seg.pct}%</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Barra de progreso visual */}
+                                <div className="bg-gray-800 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Composición del Portafolio</h3>
+                                    <div className="h-8 flex rounded-lg overflow-hidden">
+                                        {segmentos.map(seg => (
+                                            <div 
+                                                key={seg.id}
+                                                style={{ width: `${seg.pct}%`, backgroundColor: seg.color }}
+                                                className="flex items-center justify-center text-xs font-bold"
+                                            >
+                                                {seg.pct > 5 && `${seg.id}: ${seg.pct}%`}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex justify-between mt-2 text-xs text-gray-400">
+                                        <span>🟢 A: Voicebot Prioritario</span>
+                                        <span>🔵 B: Con Seguimiento</span>
+                                        <span>🟡 C: Humano</span>
+                                        <span>🔴 D: No Gestionar</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Vista Segmentación */}
+                        {activeView === 'segmentos' && (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-6">
+                                    {segmentos.map(seg => (
+                                        <div key={seg.id} className="bg-gray-800 rounded-xl p-6" 
+                                             style={{ borderTop: `4px solid ${seg.color}` }}>
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div>
+                                                    <div className="text-2xl font-bold" style={{ color: seg.color }}>
+                                                        Segmento {seg.id}
+                                                    </div>
+                                                    <div className="text-gray-400">{seg.nombre}</div>
+                                                </div>
+                                                <div className="text-4xl font-bold">{formatNumber(seg.cantidad)}</div>
+                                            </div>
+                                            
+                                            <div className="bg-gray-700 rounded-lg p-4">
+                                                <div className="text-sm text-gray-400 mb-2">Acción recomendada:</div>
+                                                <div className="font-medium">{seg.accion}</div>
+                                            </div>
+
+                                            <div className="mt-4">
+                                                <div className="flex justify-between text-sm mb-1">
+                                                    <span>Porcentaje del total</span>
+                                                    <span>{seg.pct}%</span>
+                                                </div>
+                                                <div className="h-2 bg-gray-700 rounded-full">
+                                                    <div 
+                                                        className="h-full rounded-full"
+                                                        style={{ width: `${seg.pct}%`, backgroundColor: seg.color }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Probabilidad de pago */}
+                                <div className="bg-gray-800 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Distribución por Probabilidad de Pago</h3>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        {probabilidades.map((p, i) => (
+                                            <div key={i} className="bg-gray-700 rounded-lg p-4 text-center">
+                                                <div className="text-3xl font-bold" style={{ color: p.color }}>
+                                                    {formatNumber(p.cantidad)}
+                                                </div>
+                                                <div className="text-sm font-medium mt-1">{p.rango}</div>
+                                                <div className="text-xs text-gray-400">{p.pct}% del total</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Vista Campañas */}
+                        {activeView === 'campanas' && (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="bg-gray-800 rounded-xl p-6">
+                                        <h3 className="text-lg font-semibold mb-4">📊 Distribución de Campañas</h3>
+                                        <div className="flex items-center justify-around">
+                                            <div className="text-center">
+                                                <div className="text-4xl font-bold text-green-400">{formatNumber(stats.conCampana)}</div>
+                                                <div className="text-sm text-gray-400">Con Campaña</div>
+                                                <div className="text-xs text-green-400">{stats.pctConCampana}%</div>
+                                            </div>
+                                            <div className="text-4xl text-gray-600">|</div>
+                                            <div className="text-center">
+                                                <div className="text-4xl font-bold text-red-400">{formatNumber(stats.sinCampana)}</div>
+                                                <div className="text-sm text-gray-400">Sin Campaña</div>
+                                                <div className="text-xs text-red-400">{(100 - stats.pctConCampana).toFixed(1)}%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-gray-800 rounded-xl p-6">
+                                        <h3 className="text-lg font-semibold mb-4">🎁 Beneficios de Campañas</h3>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center bg-gray-700 rounded p-3">
+                                                <span>Sin pago requerido</span>
+                                                <span className="font-bold text-green-400">{formatNumber(metricas.sinPagoRequerido)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center bg-gray-700 rounded p-3">
+                                                <span>Descuento 100% intereses</span>
+                                                <span className="font-bold text-green-400">{formatNumber(metricas.descuento100)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-800 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold mb-4">🏆 Top 5 Campañas Especiales</h3>
+                                    <div className="space-y-3">
+                                        {campanasTop.map((camp, i) => (
+                                            <div key={i} className="bg-gray-700 rounded-lg p-4 flex items-center">
+                                                <div className="text-2xl font-bold text-blue-400 w-12">#{i+1}</div>
+                                                <div className="flex-1">
+                                                    <div className="font-medium text-sm">{camp.nombre}</div>
+                                                    <div className="text-xs text-gray-400">{camp.mecanismo}</div>
+                                                </div>
+                                                <div className="text-xl font-bold">{formatNumber(camp.cantidad)}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Vista Valor */}
+                        {activeView === 'valor' && (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-3 gap-6">
+                                    <div className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-6 text-center">
+                                        <div className="text-4xl mb-2">💰</div>
+                                        <div className="text-3xl font-bold text-green-300">{formatCurrency(metricas.valorEsperado)}</div>
+                                        <div className="text-sm text-gray-300 mt-2">Valor Esperado de Recupero</div>
+                                        <div className="text-xs text-gray-400 mt-1">prob_pago × saldo_mora</div>
+                                    </div>
+
+                                    <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-xl p-6 text-center">
+                                        <div className="text-4xl mb-2">📋</div>
+                                        <div className="text-3xl font-bold text-yellow-300">{formatCurrency(metricas.gacTotal)}</div>
+                                        <div className="text-sm text-gray-300 mt-2">GAC Total Proyectado</div>
+                                        <div className="text-xs text-gray-400 mt-1">Gastos de cobranza</div>
+                                    </div>
+
+                                    <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-6 text-center">
+                                        <div className="text-4xl mb-2">📊</div>
+                                        <div className="text-3xl font-bold text-blue-300">{formatCurrency(metricas.gacPromedio)}</div>
+                                        <div className="text-sm text-gray-300 mt-2">GAC Promedio</div>
+                                        <div className="text-xs text-gray-400 mt-1">Por registro</div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-800 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold mb-4">📈 Impacto de la Segmentación ML</h3>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="bg-red-900 bg-opacity-30 rounded-lg p-4 border border-red-700">
+                                            <h4 className="font-semibold text-red-400 mb-3">❌ Sin ML (Antes)</h4>
+                                            <ul className="space-y-2 text-sm text-gray-300">
+                                                <li>• Llamar a todos los 7,504 registros</li>
+                                                <li>• Sin priorización por valor</li>
+                                                <li>• Mismo esfuerzo para todos</li>
+                                                <li>• Costo alto por gestión</li>
+                                            </ul>
+                                        </div>
+                                        <div className="bg-green-900 bg-opacity-30 rounded-lg p-4 border border-green-700">
+                                            <h4 className="font-semibold text-green-400 mb-3">✅ Con ML (Ahora)</h4>
+                                            <ul className="space-y-2 text-sm text-gray-300">
+                                                <li>• Priorizar 5,211 registros Seg. A</li>
+                                                <li>• Ordenados por valor esperado</li>
+                                                <li>• Evitar 473 gestiones innecesarias (Seg. D)</li>
+                                                <li>• Ahorro estimado: 6.3% del costo</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-800 rounded-xl p-6">
+                                    <h3 className="text-lg font-semibold mb-4">🎯 Estrategia por Segmento</h3>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-gray-700">
+                                                    <th className="text-left py-2">Segmento</th>
+                                                    <th className="text-right py-2">Cantidad</th>
+                                                    <th className="text-left py-2">Canal</th>
+                                                    <th className="text-left py-2">Estrategia</th>
+                                                    <th className="text-left py-2">Prioridad</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr className="border-b border-gray-700">
+                                                    <td className="py-2"><span className="text-green-400">● Segmento A</span></td>
+                                                    <td className="text-right">5,211</td>
+                                                    <td>Voicebot</td>
+                                                    <td>Oferta directa de campaña</td>
+                                                    <td className="text-green-400">🔥 Alta</td>
+                                                </tr>
+                                                <tr className="border-b border-gray-700">
+                                                    <td className="py-2"><span className="text-blue-400">● Segmento B</span></td>
+                                                    <td className="text-right">1,755</td>
+                                                    <td>Voicebot + SMS</td>
+                                                    <td>Llamada + seguimiento automatizado</td>
+                                                    <td className="text-blue-400">📊 Media</td>
+                                                </tr>
+                                                <tr className="border-b border-gray-700">
+                                                    <td className="py-2"><span className="text-yellow-400">● Segmento C</span></td>
+                                                    <td className="text-right">65</td>
+                                                    <td>Agente humano</td>
+                                                    <td>Negociación especializada</td>
+                                                    <td className="text-yellow-400">👤 Especial</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="py-2"><span className="text-red-400">● Segmento D</span></td>
+                                                    <td className="text-right">473</td>
+                                                    <td>Ninguno</td>
+                                                    <td>No gestionar hoy - revisar mañana</td>
+                                                    <td className="text-red-400">⏸️ Pausar</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="text-center mt-8 text-gray-500 text-sm">
+                        CTI procesado con algoritmos de Machine Learning • Banco de Bogotá • Enero 2026
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Dashboard />);
+    </script>
+</body>
+</html>

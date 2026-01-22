@@ -1,0 +1,29 @@
+======================================================================
+⚠️  MÉTRICAS DEL MODELO - DATOS SIMULADOS
+======================================================================
+
+ADVERTENCIA: Este modelo fue entrenado con datos SIMULADOS.
+NO refleja el comportamiento real de los clientes.
+NO usar en producción.
+
+Fecha entrenamiento: 2026-01-20 17:48:13
+Registros de entrenamiento: 24,000
+Registros de test: 6,000
+
+MÉTRICAS:
+  AUC-ROC:   0.6626
+  Accuracy:  0.8485
+  Precision: 0.3125
+  Recall:    0.0111
+  F1-Score:  0.0215
+
+IMPORTANCIA DE VARIABLES:
+  1. tenia_campana: 0.3536
+  2. requeria_pago: 0.1788
+  3. dias_mora_al_momento: 0.0905
+  4. descuento_ofrecido: 0.0801
+  5. hora_num: 0.0688
+  6. saldo_mora_al_momento: 0.0635
+  7. producto_encoded: 0.0594
+  8. intento_numero: 0.0536
+  9. es_voicebot: 0.0517

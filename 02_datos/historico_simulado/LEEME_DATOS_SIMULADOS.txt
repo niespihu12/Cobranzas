@@ -1,0 +1,39 @@
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                                                                               ║
+║   ⚠️⚠️⚠️  ADVERTENCIA IMPORTANTE  ⚠️⚠️⚠️                                     ║
+║                                                                               ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║   El archivo "historico_gestiones_SIMULADO.xlsx" contiene datos FICTICIOS.   ║
+║                                                                               ║
+║   • Los datos fueron generados por un algoritmo, NO son reales               ║
+║   • Las probabilidades son INVENTADAS para demostración                      ║
+║   • NO reflejan el comportamiento real de clientes del Banco de Bogotá       ║
+║                                                                               ║
+║   ═══════════════════════════════════════════════════════════════════════    ║
+║                                                                               ║
+║   ✅ USO PERMITIDO:                                                          ║
+║      • Demostración técnica del sistema                                      ║
+║      • Pruebas de código y pipelines de ML                                   ║
+║      • Capacitación del equipo                                               ║
+║      • Generación de dashboards de ejemplo                                   ║
+║                                                                               ║
+║   ❌ USO PROHIBIDO:                                                          ║
+║      • Tomar decisiones de negocio reales                                    ║
+║      • Reportes oficiales al banco o reguladores                             ║
+║      • Poner en producción modelos entrenados con estos datos                ║
+║      • Presentar como "resultados reales" del proyecto                       ║
+║                                                                               ║
+║   ═══════════════════════════════════════════════════════════════════════    ║
+║                                                                               ║
+║   Para obtener resultados REALES, se requiere:                               ║
+║   • Histórico real de gestiones del Banco de Bogotá                          ║
+║   • Datos de pagos reales de los últimos 6-12 meses                          ║
+║   • Entrenamiento de modelos con datos verificados                           ║
+║                                                                               ║
+║   Fecha de generación: 2026-01-20 02:41:52                              ║
+║   Registros generados: 50,000                                                 ║
+║   Período simulado: Enero 2025 - Diciembre 2025                              ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
