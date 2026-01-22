@@ -732,13 +732,14 @@ def main():
     m = calcular_metricas(df_f)
     
     # Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📊 Resumen Ejecutivo",
         "🎯 Segmentación",
         "🤖 Modelo ML",
         "📢 Campañas",
         "🔍 Explorar Datos",
-        "📞 Gestionar Llamadas"
+        "📞 Gestionar Llamadas",
+        "📋 Trazabilidad Llamadas"
     ])
     
     # ===== TAB 1: RESUMEN =====
@@ -991,6 +992,368 @@ def main():
                                 st.error(f"❌ Error: {str(e)}")
                 
                 st.markdown("---")
+
+    # ===== TAB 7: TRAZABILIDAD LLAMADAS =====
+    with tab7:
+        st.markdown("### 📋 Trazabilidad de Llamadas")
+        
+        # Configuración API ElevenLabs
+        ELEVENLABS_API_KEY = "sk_cb54edd4334b8729b80d295c75432102be6879217dd736f6"
+        AGENT_ID = "agent_7901kfgkj27ef9mt2d2whyk2nzrg"
+        
+        # Funciones para API ElevenLabs
+        @st.cache_data(ttl=60)
+        def obtener_conversaciones(agent_id, cursor=""):
+            """Obtiene lista de conversaciones del agente."""
+            if not REQUESTS_AVAILABLE:
+                return None, "Requests no disponible"
+            
+            try:
+                url = "https://api.elevenlabs.io/v1/convai/conversations"
+                headers = {"xi-api-key": ELEVENLABS_API_KEY}
+                params = {"agent_id": agent_id, "cursor": cursor}
+                
+                response = requests.get(url, headers=headers, params=params, timeout=10)
+                
+                if response.status_code == 200:
+                    return response.json(), None
+                else:
+                    return None, f"Error {response.status_code}: {response.text}"
+            except Exception as e:
+                return None, str(e)
+        
+        def obtener_detalle_conversacion(conversation_id):
+            """Obtiene detalle de una conversación específica."""
+            if not REQUESTS_AVAILABLE:
+                return None, "Requests no disponible"
+            
+            try:
+                url = f"https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}"
+                headers = {"xi-api-key": ELEVENLABS_API_KEY}
+                
+                response = requests.get(url, headers=headers, timeout=10)
+                
+                if response.status_code == 200:
+                    return response.json(), None
+                else:
+                    return None, f"Error {response.status_code}: {response.text}"
+            except Exception as e:
+                return None, str(e)
+        
+        def obtener_audio_conversacion(conversation_id):
+            """Obtiene el audio de una conversación."""
+            if not REQUESTS_AVAILABLE:
+                return None, "Requests no disponible"
+            
+            try:
+                url = f"https://api.elevenlabs.io/v1/convai/conversations/{conversation_id}/audio"
+                headers = {"xi-api-key": ELEVENLABS_API_KEY}
+                
+                response = requests.get(url, headers=headers, timeout=30)
+                
+                if response.status_code == 200:
+                    return response.content, None
+                else:
+                    return None, f"Error {response.status_code}: {response.text}"
+            except Exception as e:
+                return None, str(e)
+        
+        # Cargar conversaciones
+        with st.spinner("🔄 Cargando conversaciones..."):
+            data, error = obtener_conversaciones(AGENT_ID)
+        
+        if error:
+            st.error(f"❌ Error al cargar conversaciones: {error}")
+            return
+        
+        if not data or 'conversations' not in data:
+            st.warning("⚠️ No se encontraron conversaciones")
+            return
+        
+        conversaciones = data['conversations']
+        
+        # Métricas generales
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        total_calls = len(conversaciones)
+        successful_calls = len([c for c in conversaciones if c.get('call_successful') == 'success'])
+        failed_calls = len([c for c in conversaciones if c.get('call_successful') != 'success'])
+        total_duration = sum([c.get('call_duration_secs', 0) for c in conversaciones])
+        avg_duration = total_duration / total_calls if total_calls > 0 else 0
+        
+        col1.metric("Total Llamadas", f"{total_calls:,}")
+        col2.metric("Exitosas", f"{successful_calls:,}", f"{successful_calls/total_calls*100:.1f}%" if total_calls > 0 else "0%")
+        col3.metric("Fallidas", f"{failed_calls:,}", f"{failed_calls/total_calls*100:.1f}%" if total_calls > 0 else "0%")
+        col4.metric("Duración Total", f"{total_duration//60:.0f}m {total_duration%60:.0f}s")
+        col5.metric("Duración Promedio", f"{avg_duration:.0f}s")
+        
+        st.markdown("---")
+        
+        # Filtros
+        col_f1, col_f2, col_f3 = st.columns(3)
+        
+        with col_f1:
+            filtro_estado = st.selectbox(
+                "Estado de llamada:",
+                ["Todas", "Exitosas", "Fallidas"],
+                index=0
+            )
+        
+        with col_f2:
+            filtro_duracion = st.selectbox(
+                "Duración:",
+                ["Todas", "Cortas (<30s)", "Normales (30s-2m)", "Largas (>2m)"],
+                index=0
+            )
+        
+        with col_f3:
+            mostrar_registros = st.number_input(
+                "Mostrar registros:",
+                min_value=10, max_value=100, value=20, step=10
+            )
+        
+        # Aplicar filtros
+        conversaciones_filtradas = conversaciones.copy()
+        
+        if filtro_estado == "Exitosas":
+            conversaciones_filtradas = [c for c in conversaciones_filtradas if c.get('call_successful') == 'success']
+        elif filtro_estado == "Fallidas":
+            conversaciones_filtradas = [c for c in conversaciones_filtradas if c.get('call_successful') != 'success']
+        
+        if filtro_duracion == "Cortas (<30s)":
+            conversaciones_filtradas = [c for c in conversaciones_filtradas if c.get('call_duration_secs', 0) < 30]
+        elif filtro_duracion == "Normales (30s-2m)":
+            conversaciones_filtradas = [c for c in conversaciones_filtradas if 30 <= c.get('call_duration_secs', 0) <= 120]
+        elif filtro_duracion == "Largas (>2m)":
+            conversaciones_filtradas = [c for c in conversaciones_filtradas if c.get('call_duration_secs', 0) > 120]
+        
+        # Limitar registros mostrados
+        conversaciones_mostrar = conversaciones_filtradas[:int(mostrar_registros)]
+        
+        st.markdown(f"**Mostrando {len(conversaciones_mostrar)} de {len(conversaciones_filtradas)} conversaciones**")
+        
+        # Lista de conversaciones
+        for i, conv in enumerate(conversaciones_mostrar):
+            with st.expander(
+                f"📞 {conv.get('call_summary_title', 'Sin título')} - "
+                f"{datetime.fromtimestamp(conv.get('start_time_unix_secs', 0)).strftime('%d/%m %H:%M')} - "
+                f"{conv.get('call_duration_secs', 0)}s"
+            ):
+                # Información básica
+                col_info1, col_info2, col_info3 = st.columns(3)
+                
+                with col_info1:
+                    st.markdown(f"""
+                    **📅 Información Básica:**
+                    - ID: `{conv.get('conversation_id', 'N/A')}`
+                    - Estado: {'✅ Exitosa' if conv.get('call_successful') == 'success' else '❌ Fallida'}
+                    - Duración: {conv.get('call_duration_secs', 0)}s
+                    - Mensajes: {conv.get('message_count', 0)}
+                    """)
+                
+                with col_info2:
+                    start_time = datetime.fromtimestamp(conv.get('start_time_unix_secs', 0))
+                    st.markdown(f"""
+                    **🕰️ Tiempo:**
+                    - Inicio: {start_time.strftime('%d/%m/%Y %H:%M:%S')}
+                    - Dirección: {conv.get('direction', 'N/A')}
+                    - Agente: {conv.get('agent_name', 'N/A')}
+                    - Rating: {conv.get('rating', 'Sin rating')}
+                    """)
+                
+                with col_info3:
+                    branch_id = conv.get('branch_id', 'N/A')
+                    version_id = conv.get('version_id', 'N/A')
+                    st.markdown(f"""
+                    **📝 Resumen:**
+                    - Título: {conv.get('call_summary_title', 'N/A')}
+                    - Estado: {conv.get('status', 'N/A')}
+                    - Branch: `{branch_id[:20] + '...' if branch_id and branch_id != 'N/A' and len(branch_id) > 20 else branch_id}`
+                    - Version: `{version_id[:20] + '...' if version_id and version_id != 'N/A' and len(version_id) > 20 else version_id}`
+                    """)
+                
+                # Botones de acción
+                col_btn1, col_btn2, col_btn3 = st.columns(3)
+                
+                with col_btn1:
+                    if st.button(f"🔍 Ver Detalle", key=f"detail_{i}"):
+                        with st.spinner("Cargando detalle..."):
+                            detalle, error_det = obtener_detalle_conversacion(conv['conversation_id'])
+                            
+                            if error_det:
+                                st.error(f"Error: {error_det}")
+                            else:
+                                st.session_state[f'detalle_{conv["conversation_id"]}'] = detalle
+                                st.success("Detalle cargado")
+                
+                with col_btn2:
+                    if st.button(f"🎧 Descargar Audio", key=f"audio_{i}"):
+                        with st.spinner("Descargando audio..."):
+                            audio_data, error_audio = obtener_audio_conversacion(conv['conversation_id'])
+                            
+                            if error_audio:
+                                st.error(f"Error: {error_audio}")
+                            else:
+                                st.download_button(
+                                    label="💾 Descargar MP3",
+                                    data=audio_data,
+                                    file_name=f"llamada_{conv['conversation_id']}.mp3",
+                                    mime="audio/mpeg",
+                                    key=f"download_audio_{i}"
+                                )
+                
+                with col_btn3:
+                    if st.button(f"📋 Ver Transcripción", key=f"transcript_{i}"):
+                        st.session_state[f'show_transcript_{conv["conversation_id"]}'] = True
+                
+                # Mostrar detalle si está cargado
+                detalle_key = f'detalle_{conv["conversation_id"]}'
+                if detalle_key in st.session_state:
+                    detalle = st.session_state[detalle_key]
+                    
+                    st.markdown("#### 📝 Detalle de la Conversación")
+                    
+                    # Información adicional del detalle
+                    if 'metadata' in detalle:
+                        metadata = detalle['metadata']
+                        
+                        col_meta1, col_meta2 = st.columns(2)
+                        
+                        with col_meta1:
+                            st.markdown(f"""
+                            **📊 Métricas:**
+                            - Costo: ${metadata.get('cost', 0)/100:.2f}
+                            - Teléfono: {metadata.get('phone_call', {}).get('external_number', 'N/A')}
+                            - Idioma: {metadata.get('main_language', 'N/A')}
+                            - Razón fin: {metadata.get('termination_reason', 'N/A')}
+                            """)
+                        
+                        with col_meta2:
+                            if 'charging' in metadata:
+                                charging = metadata['charging']
+                                st.markdown(f"""
+                                **💰 Facturación:**
+                                - Precio LLM: ${charging.get('llm_price', 0):.4f}
+                                - Cargo llamada: {charging.get('call_charge', 0)}
+                                - Tier: {charging.get('tier', 'N/A')}
+                                - Minutos gratis: {charging.get('free_minutes_consumed', 0)}
+                                """)
+                    
+                    # Variables dinámicas
+                    if 'conversation_initiation_client_data' in detalle:
+                        client_data = detalle['conversation_initiation_client_data']
+                        if 'dynamic_variables' in client_data:
+                            variables = client_data['dynamic_variables']
+                            
+                            st.markdown("**📊 Variables de la Llamada:**")
+                            
+                            # Mostrar variables importantes
+                            vars_importantes = ['Nombre', 'Producto', 'Saldo_en_mora', 'Fecha_Pago_Cliente', 'Campaign']
+                            
+                            col_vars = st.columns(len(vars_importantes))
+                            for idx, var in enumerate(vars_importantes):
+                                if var in variables:
+                                    with col_vars[idx]:
+                                        st.metric(var.replace('_', ' '), variables[var])
+                
+                # Mostrar transcripción si está solicitada
+                transcript_key = f'show_transcript_{conv["conversation_id"]}'
+                if st.session_state.get(transcript_key, False):
+                    if detalle_key in st.session_state:
+                        detalle = st.session_state[detalle_key]
+                        
+                        if 'transcript' in detalle:
+                            st.markdown("#### 🗣️ Transcripción de la Llamada")
+                            
+                            transcript = detalle['transcript']
+                            
+                            for msg_idx, mensaje in enumerate(transcript):
+                                role = mensaje.get('role', 'unknown')
+                                content = mensaje.get('message', '')
+                                time_in_call = mensaje.get('time_in_call_secs', 0)
+                                
+                                # Icono según el rol
+                                icon = "🤖" if role == 'agent' else "👤" if role == 'user' else "❓"
+                                
+                                # Color de fondo según el rol
+                                bg_color = "background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);" if role == 'agent' else "background: linear-gradient(135deg, #065f46 0%, #047857 100%);"
+                                
+                                st.markdown(
+                                    f"""
+                                    <div style="{bg_color} padding: 12px; border-radius: 8px; margin: 8px 0; border-left: 4px solid {'#3b82f6' if role == 'agent' else '#10b981'};">
+                                        <strong>{icon} {role.title()} ({time_in_call}s):</strong><br>
+                                        {content}
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+                            
+                            # Botón para ocultar transcripción
+                            if st.button(f"🙈 Ocultar Transcripción", key=f"hide_transcript_{i}"):
+                                st.session_state[transcript_key] = False
+                                st.rerun()
+                        else:
+                            st.warning("No hay transcripción disponible")
+                    else:
+                        st.warning("Primero carga el detalle de la conversación")
+        
+        # Paginación
+        if len(conversaciones_filtradas) > mostrar_registros:
+            st.markdown("---")
+            st.info(f"📄 Mostrando {mostrar_registros} de {len(conversaciones_filtradas)} conversaciones. Ajusta el filtro 'Mostrar registros' para ver más.")
+        
+        # Resumen de análisis
+        if conversaciones:
+            st.markdown("---")
+            st.markdown("### 📊 Análisis de Llamadas")
+            
+            # Gráfico de duraciones
+            duraciones = [c.get('call_duration_secs', 0) for c in conversaciones if c.get('call_duration_secs', 0) > 0]
+            
+            if duraciones:
+                col_chart1, col_chart2 = st.columns(2)
+                
+                with col_chart1:
+                    fig_dur = go.Figure(go.Histogram(
+                        x=duraciones,
+                        nbinsx=20,
+                        marker=dict(color='#3b82f6', line=dict(color='#1e293b', width=1))
+                    ))
+                    
+                    fig_dur.update_layout(
+                        title=dict(text='Distribución de Duraciones', font=dict(color='#f1f5f9', size=16)),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        xaxis=dict(gridcolor='#1e293b', tickfont=dict(color='#94a3b8'), title='Segundos'),
+                        yaxis=dict(gridcolor='#1e293b', tickfont=dict(color='#94a3b8'), title='Llamadas'),
+                        margin=dict(l=10, r=10, t=50, b=10), height=300
+                    )
+                    
+                    st.plotly_chart(fig_dur, use_container_width=True)
+                
+                with col_chart2:
+                    # Gráfico de éxito vs fallo
+                    estados = {}
+                    for c in conversaciones:
+                        estado = 'Exitosa' if c.get('call_successful') == 'success' else 'Fallida'
+                        estados[estado] = estados.get(estado, 0) + 1
+                    
+                    fig_estados = go.Figure(go.Pie(
+                        labels=list(estados.keys()),
+                        values=list(estados.values()),
+                        hole=0.6,
+                        marker=dict(colors=['#10b981', '#ef4444']),
+                        textinfo='percent+label',
+                        textfont=dict(color='white', size=12)
+                    ))
+                    
+                    fig_estados.update_layout(
+                        title=dict(text='Tasa de Éxito', font=dict(color='#f1f5f9', size=16)),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        legend=dict(font=dict(color='#cbd5e1')),
+                        margin=dict(l=10, r=10, t=50, b=10), height=300
+                    )
+                    
+                    st.plotly_chart(fig_estados, use_container_width=True)
 
 # ============================================================================
 # EJECUTAR
