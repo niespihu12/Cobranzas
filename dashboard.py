@@ -1105,6 +1105,7 @@ def main():
                         if error_det:
                             status_container.error(f"❌ {error_det}")
                         else:
+                            print(detalle)
                             st.session_state[f'detalle_{conv["conversation_id"]}'] = detalle
                             status_container.success("✅ Cargado")
                 
@@ -1148,6 +1149,7 @@ def main():
                     # Información adicional del detalle
                     if 'metadata' in detalle:
                         metadata = detalle['metadata']
+                        metadata1 = detalle['analysis']
                         
                         col_meta1, col_meta2 = st.columns(2)
                         
@@ -1157,6 +1159,13 @@ def main():
                             - Teléfono: {metadata.get('phone_call', {}).get('external_number', 'N/A')}
                             - Idioma: {metadata.get('main_language', 'N/A')}
                             - Razón fin: {metadata.get('termination_reason', 'N/A')}
+                            """)
+                            
+                        with col_meta2:
+                            st.markdown(f"""
+                            **Datos claves de llamada:** 
+                            - Resumen: {metadata1.get('data_collection_results',{}).get('resumen_llamada',{}).get('value', 'N/A')}
+                            - Sentimiento: {metadata1.get('data_collection_results',{}).get('analisis_sentimiento',{}).get('value', 'N/A')}    
                             """)
                         
                        
