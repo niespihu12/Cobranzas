@@ -1,6 +1,6 @@
 """
 ╔═══════════════════════════════════════════════════════════════════════════════╗
-║  DASHBOARD VOICEBOT COBRANZAS - BANCO DE BOGOTÁ (VERSIÓN AUTO-REFRESH)       ║
+║  DASHBOARD VOICEBOT COBRANZAS - BANCO DE BOGOTÁ (VERSIÓN AUTO-REFRESH)        ║
 ║  Sistema de Inteligencia para Gestión de Cobranzas                            ║
 ╠═══════════════════════════════════════════════════════════════════════════════╣
 ║  Ejecutar:  streamlit run dashboard.py                                        ║
@@ -23,6 +23,11 @@ from plotly.subplots import make_subplots
 import os
 from datetime import datetime, timedelta
 import warnings
+import hashlib
+import json
+from dotenv import load_dotenv
+
+load_dotenv()
 warnings.filterwarnings('ignore')
 
 # Intentar importar requests
@@ -144,42 +149,38 @@ st.markdown("""
 # Configuración Google Apps Script
 APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwjTxqCoL2euA72zP6LFf0segsKw1EOtoe-3K883xcGIqcdyGDOcu1NWHT_cWvjAFqv/exec"
 
-# MEJORA 1: Cache reducido a 30 segundos para actualización frecuente
+# Cache de 30 segundos para actualización frecuente
 @st.cache_data(ttl=30, show_spinner=False)
-def cargar_datos_sheets(url=APPS_SCRIPT_URL, timestamp=None):
-    """
-    Carga datos desde Google Apps Script.
-    
-    Args:
-        url: URL del endpoint
-        timestamp: Parámetro para forzar recarga (no usado en lógica, solo para cache)
-    """
+def cargar_datos_sheets(url=APPS_SCRIPT_URL):
+    """Carga datos desde Google Apps Script con cache de 30s."""
     if not REQUESTS_AVAILABLE:
-        st.error("📦 **Módulo requerido**: Instala 'requests' con: pip install requests")
         return None, "Error: requests no disponible"
         
     try:
-        # Agregar timeout para evitar esperas infinitas
         response = requests.get(url, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
             
             if isinstance(data, list) and len(data) > 0:
-                df = pd.DataFrame(data)
-                df_procesado = procesar_datos_sheets(df)
-                return df_procesado, None
+                return data, None
             else:
-                return None, "No se encontraron datos en la respuesta"
+                return None, "No se encontraron datos"
         else:
-            return None, f"Error HTTP {response.status_code}: {response.text[:100]}"
+            return None, f"Error HTTP {response.status_code}"
             
     except requests.Timeout:
-        return None, "Timeout: El servidor tardó demasiado en responder"
+        return None, "Timeout"
     except requests.ConnectionError:
-        return None, "Error de conexión: Verifica tu internet"
+        return None, "Error de conexión"
     except Exception as e:
-        return None, f"Error inesperado: {str(e)}"
+        return None, f"Error: {str(e)}"
+
+def payload_hash(data) -> str:
+    """Genera hash MD5 del payload para detectar cambios."""
+    return hashlib.md5(
+        json.dumps(data, sort_keys=True, default=str).encode()
+    ).hexdigest()
 
 def procesar_datos_sheets(df):
     """Procesa y enriquece datos de Google Sheets."""
@@ -463,12 +464,31 @@ def grafico_scatter_mora(df):
 # ============================================================================
 
 def main():
-    # MEJORA 2: Auto-refresh unificado al inicio
-    refresh_interval_ms = 60000  # 1 minuto en milisegundos
-    
+    # Auto-refresh cada 30 segundos (silencioso)
     if AUTOREFRESH_AVAILABLE:
-        # Un solo autorefresh que actualiza todo
-        refresh_count = st_autorefresh(interval=refresh_interval_ms, key="unified_refresh")
+        st_autorefresh(interval=30000, key="heartbeat")
+    
+    # Fetch data con cache
+    raw_data, error = cargar_datos_sheets()
+    
+    # Inicializar session_state
+    if "last_hash" not in st.session_state:
+        st.session_state.last_hash = None
+        st.session_state.df = None
+        st.session_state.last_update = datetime.now()
+    
+    # Detectar cambios reales
+    if raw_data:
+        current_hash = payload_hash(raw_data)
+        
+        if current_hash != st.session_state.last_hash:
+            # Hay cambios: procesar y actualizar
+            df = pd.DataFrame(raw_data)
+            st.session_state.df = procesar_datos_sheets(df)
+            st.session_state.last_hash = current_hash
+            st.session_state.last_update = datetime.now()
+    
+    df = st.session_state.df
     
     # ===== HEADER =====
     col_h1, col_h2 = st.columns([4, 1])
@@ -495,123 +515,18 @@ def main():
     with st.sidebar:
         st.markdown("## Configuración")
         
-        # MEJORA 3: Indicador de estado de actualización
-        st.markdown("### Estado de Actualización")
+        # Indicador de estado
+        st.markdown("### Estado")
         if AUTOREFRESH_AVAILABLE:
-            st.markdown(
-                f'<div class="refresh-indicator">🔄 Auto-actualización ACTIVA (cada {refresh_interval_ms//1000}s)</div>',
-                unsafe_allow_html=True
-            )
+            st.markdown('<div class="refresh-indicator">🔄 Auto-refresh: 30s</div>', unsafe_allow_html=True)
         else:
-            st.markdown(
-                '<div class="error-indicator">⚠️ Auto-refresh NO disponible (instalar streamlit-autorefresh)</div>',
-                unsafe_allow_html=True
-            )
+            st.markdown('<div class="error-indicator">⚠️ pip install streamlit-autorefresh</div>', unsafe_allow_html=True)
+        
         
         st.markdown("---")
         
-        # Cargar datos
-        st.markdown("### Fuente de Datos")
-        
-        fuente = st.radio("Seleccionar fuente:", 
-                         ["Google Sheets", "Archivo Excel"], 
-                         horizontal=True)
-        
-        df = None
-        error_msg = None
-        
-        if fuente == "Google Sheets":
-            st.markdown("**Opción 1: URL predeterminada**")
-            
-            # MEJORA 4: Cargar automáticamente al inicio
-            if 'auto_load' not in st.session_state:
-                st.session_state['auto_load'] = True
-            
-            if st.button("Cargar desde Google Sheets", type="primary") or st.session_state.get('auto_load', False):
-                st.session_state['auto_load'] = False
-                
-                with st.spinner("Cargando datos..."):
-                    # Pasar timestamp para forzar recarga en cache
-                    df, error_msg = cargar_datos_sheets(
-                        url=APPS_SCRIPT_URL,
-                        timestamp=datetime.now().timestamp()
-                    )
-                    
-                    if df is not None:
-                        st.session_state['df_sheets'] = df
-                        st.session_state['last_update'] = datetime.now()
-                        st.session_state['last_error'] = None
-                        st.success(f"✅ {len(df):,} registros cargados")
-                    else:
-                        st.session_state['last_error'] = error_msg
-                        st.error(f"❌ {error_msg}")
-            
-            st.markdown("**Opción 2: URL personalizada**")
-            url_custom = st.text_input(
-                "URL del Google Sheet (formato CSV)", 
-                placeholder="https://docs.google.com/spreadsheets/d/TU_SHEET_ID/export?format=csv&gid=0",
-                help="Pega aquí la URL de tu Google Sheet público"
-            )
-            
-            if url_custom and st.button("Cargar URL personalizada"):
-                with st.spinner("Cargando datos..."):
-                    try:
-                        df_temp = pd.read_csv(url_custom)
-                        if len(df_temp) > 0:
-                            df = procesar_datos_sheets(df_temp)
-                            st.session_state['df_sheets'] = df
-                            st.session_state['last_update'] = datetime.now()
-                            st.success(f"✅ {len(df):,} registros cargados")
-                        else:
-                            st.error("No se encontraron datos")
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-            
-            # MEJORA 5: Usar datos en session_state y mostrar info detallada
-            if 'df_sheets' in st.session_state:
-                df = st.session_state['df_sheets']
-                last_update = st.session_state.get('last_update', datetime.now())
-                time_diff = datetime.now() - last_update
-                
-                # Indicador visual de frescura de datos
-                if time_diff.seconds < 60:
-                    freshness = "🟢 RECIENTE"
-                    color = "success"
-                elif time_diff.seconds < 180:
-                    freshness = "🟡 ACTUALIZADO"
-                    color = "warning"
-                else:
-                    freshness = "🔴 ANTIGUO"
-                    color = "error"
-                
-                st.markdown(f"""
-                **Estado de Datos:**
-                - Registros: {len(df):,}
-                - Última actualización: {last_update.strftime('%H:%M:%S')}
-                - Hace: {time_diff.seconds}s
-                - Estado: {freshness}
-                """)
-                
-                # Mostrar último error si existe
-                if st.session_state.get('last_error'):
-                    with st.expander("⚠️ Último error"):
-                        st.error(st.session_state['last_error'])
-        
-        else:  # Archivo Excel
-            archivo_subido = st.file_uploader("Cargar archivo Excel", type=['xlsx'])
-            if archivo_subido:
-                df = pd.read_excel(archivo_subido)
-                df = procesar_datos_sheets(df)  # Aplicar mismo procesamiento
-                st.success(f"✅ {len(df):,} registros")
-        
-        if df is None:
-            st.warning("⚠️ Sin datos cargados")
-            st.info("👆 Presiona 'Cargar desde Google Sheets' o sube un archivo Excel")
-        
-        st.markdown("---")
-        
-        # Filtros (mantener los mismos)
-        if df is not None:
+        # Filtros
+        if df is not None and len(df) > 0:
             st.markdown("### Filtros")
             
             filtro_camp = st.radio("Campaña", ['Todos', 'Con Campaña', 'Sin Campaña'], horizontal=True)
@@ -972,24 +887,29 @@ def main():
                         prob = row.get(prob_col, 0) * 100
                         st.text(f"{prob:.0f}%")
                 with col7:
+                    # Contenedor para mensajes sin recargar página
+                    mensaje_container = st.empty()
+                    
                     if st.button("☎️ Llamar", key=f"call_{idx}", type="primary"):
                         if not REQUESTS_AVAILABLE:
-                            st.error("Módulo 'requests' no disponible")
+                            mensaje_container.error("Módulo 'requests' no disponible")
                         else:
                             webhook_url = "https://workflows.aosinternational.us/webhook-test/AmericanBPO"
                             cedula = str(row.get('cedula', ''))
                             
+                            # Mostrar estado sin recargar
+                            mensaje_container.info("⏳ Llamando...")
+                            
                             try:
-                                with st.spinner("Iniciando llamada..."):
-                                    response = requests.post(webhook_url, json={"cedula": cedula}, timeout=5)
-                                    if response.status_code == 200:
-                                        st.success(f"✅ Llamada iniciada para {cedula}")
-                                    else:
-                                        st.error(f"❌ Error: {response.status_code}")
+                                response = requests.post(webhook_url, json={"cedula": cedula}, timeout=5)
+                                if response.status_code == 200:
+                                    mensaje_container.success(f"✅ Llamada iniciada")
+                                else:
+                                    mensaje_container.error(f"❌ Error: {response.status_code}")
                             except requests.Timeout:
-                                st.error("⏱️ Timeout: El webhook no respondió")
+                                mensaje_container.error("⏱️ Timeout")
                             except Exception as e:
-                                st.error(f"❌ Error: {str(e)}")
+                                mensaje_container.error(f"❌ {str(e)[:50]}")
                 
                 st.markdown("---")
 
@@ -998,13 +918,12 @@ def main():
         st.markdown("### 📋 Trazabilidad de Llamadas")
         
         # Configuración API ElevenLabs
-        ELEVENLABS_API_KEY = "sk_cb54edd4334b8729b80d295c75432102be6879217dd736f6"
+        ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
         AGENT_ID = "agent_7901kfgkj27ef9mt2d2whyk2nzrg"
         
-        # Funciones para API ElevenLabs
-        @st.cache_data(ttl=60)
+        # Funciones para API ElevenLabs (cache 30s, sin spinner)
+        @st.cache_data(ttl=30, show_spinner=False)
         def obtener_conversaciones(agent_id, cursor=""):
-            """Obtiene lista de conversaciones del agente."""
             if not REQUESTS_AVAILABLE:
                 return None, "Requests no disponible"
             
@@ -1018,12 +937,12 @@ def main():
                 if response.status_code == 200:
                     return response.json(), None
                 else:
-                    return None, f"Error {response.status_code}: {response.text}"
+                    return None, f"Error {response.status_code}"
             except Exception as e:
                 return None, str(e)
         
+        @st.cache_data(ttl=30, show_spinner=False)
         def obtener_detalle_conversacion(conversation_id):
-            """Obtiene detalle de una conversación específica."""
             if not REQUESTS_AVAILABLE:
                 return None, "Requests no disponible"
             
@@ -1036,12 +955,12 @@ def main():
                 if response.status_code == 200:
                     return response.json(), None
                 else:
-                    return None, f"Error {response.status_code}: {response.text}"
+                    return None, f"Error {response.status_code}"
             except Exception as e:
                 return None, str(e)
         
+        @st.cache_data(ttl=30, show_spinner=False)
         def obtener_audio_conversacion(conversation_id):
-            """Obtiene el audio de una conversación."""
             if not REQUESTS_AVAILABLE:
                 return None, "Requests no disponible"
             
@@ -1054,13 +973,12 @@ def main():
                 if response.status_code == 200:
                     return response.content, None
                 else:
-                    return None, f"Error {response.status_code}: {response.text}"
+                    return None, f"Error {response.status_code}"
             except Exception as e:
                 return None, str(e)
         
-        # Cargar conversaciones
-        with st.spinner("🔄 Cargando conversaciones..."):
-            data, error = obtener_conversaciones(AGENT_ID)
+        # Cargar conversaciones (sin spinner)
+        data, error = obtener_conversaciones(AGENT_ID)
         
         if error:
             st.error(f"❌ Error al cargar conversaciones: {error}")
@@ -1109,7 +1027,7 @@ def main():
         with col_f3:
             mostrar_registros = st.number_input(
                 "Mostrar registros:",
-                min_value=10, max_value=100, value=20, step=10
+                min_value=10, max_value=100, value=10, step=10
             )
         
         # Aplicar filtros
@@ -1175,32 +1093,35 @@ def main():
                 # Botones de acción
                 col_btn1, col_btn2, col_btn3 = st.columns(3)
                 
+                # Contenedores para mensajes (sin recargar página)
+                col_btn1, col_btn2, col_btn3 = st.columns(3)
+                
+                status_container = st.empty()
+                
                 with col_btn1:
-                    if st.button(f"🔍 Ver Detalle", key=f"detail_{i}"):
-                        with st.spinner("Cargando detalle..."):
-                            detalle, error_det = obtener_detalle_conversacion(conv['conversation_id'])
-                            
-                            if error_det:
-                                st.error(f"Error: {error_det}")
-                            else:
-                                st.session_state[f'detalle_{conv["conversation_id"]}'] = detalle
-                                st.success("Detalle cargado")
+                    if st.button(f"🔍 Detalle", key=f"detail_{i}"):
+                        detalle, error_det = obtener_detalle_conversacion(conv['conversation_id'])
+                        
+                        if error_det:
+                            status_container.error(f"❌ {error_det}")
+                        else:
+                            st.session_state[f'detalle_{conv["conversation_id"]}'] = detalle
+                            status_container.success("✅ Cargado")
                 
                 with col_btn2:
-                    if st.button(f"🎧 Descargar Audio", key=f"audio_{i}"):
-                        with st.spinner("Descargando audio..."):
-                            audio_data, error_audio = obtener_audio_conversacion(conv['conversation_id'])
-                            
-                            if error_audio:
-                                st.error(f"Error: {error_audio}")
-                            else:
-                                st.download_button(
-                                    label="💾 Descargar MP3",
-                                    data=audio_data,
-                                    file_name=f"llamada_{conv['conversation_id']}.mp3",
-                                    mime="audio/mpeg",
-                                    key=f"download_audio_{i}"
-                                )
+                    if st.button(f"🎧 Audio", key=f"audio_{i}"):
+                        audio_data, error_audio = obtener_audio_conversacion(conv['conversation_id'])
+                        
+                        if error_audio:
+                            status_container.error(f"❌ {error_audio}")
+                        else:
+                            st.download_button(
+                                label="💾 MP3",
+                                data=audio_data,
+                                file_name=f"llamada_{conv['conversation_id']}.mp3",
+                                mime="audio/mpeg",
+                                key=f"download_audio_{i}"
+                            )
                 
                 with col_btn3:
                     if st.button(f"📋 Ver Transcripción", key=f"transcript_{i}"):
