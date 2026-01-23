@@ -1143,22 +1143,12 @@ def main():
                         with col_meta1:
                             st.markdown(f"""
                             **📊 Métricas:**
-                            - Costo: ${metadata.get('cost', 0)/100:.2f}
                             - Teléfono: {metadata.get('phone_call', {}).get('external_number', 'N/A')}
                             - Idioma: {metadata.get('main_language', 'N/A')}
                             - Razón fin: {metadata.get('termination_reason', 'N/A')}
                             """)
                         
-                        with col_meta2:
-                            if 'charging' in metadata:
-                                charging = metadata['charging']
-                                st.markdown(f"""
-                                **💰 Facturación:**
-                                - Precio LLM: ${charging.get('llm_price', 0):.4f}
-                                - Cargo llamada: {charging.get('call_charge', 0)}
-                                - Tier: {charging.get('tier', 'N/A')}
-                                - Minutos gratis: {charging.get('free_minutes_consumed', 0)}
-                                """)
+                       
                     
                     # Variables dinámicas
                     if 'conversation_initiation_client_data' in detalle:
