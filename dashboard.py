@@ -1110,22 +1110,33 @@ def main():
                 
                 with col_btn2:
                     if st.button(f"🎧 Audio", key=f"audio_{i}"):
-                        audio_data, error_audio = obtener_audio_conversacion(conv['conversation_id'])
-                        
-                        if error_audio:
-                            status_container.error(f"❌ {error_audio}")
-                        else:
-                            st.download_button(
-                                label="💾 MP3",
-                                data=audio_data,
-                                file_name=f"llamada_{conv['conversation_id']}.mp3",
-                                mime="audio/mpeg",
-                                key=f"download_audio_{i}"
-                            )
+                        with st.spinner("Cargando audio..."):
+                            audio_data, error_audio = obtener_audio_conversacion(conv['conversation_id'])
+                            
+                            if error_audio:
+                                status_container.error(f"❌ {error_audio}")
+                            else:
+                                st.session_state[f'audio_{conv["conversation_id"]}'] = audio_data
+                                status_container.success("✅ Audio cargado")
                 
                 with col_btn3:
-                    if st.button(f"📋 Ver Transcripción", key=f"transcript_{i}"):
+                    if st.button(f"📋 Transcripción", key=f"transcript_{i}"):
                         st.session_state[f'show_transcript_{conv["conversation_id"]}'] = True
+                
+                # Mostrar audio si está cargado
+                audio_key = f'audio_{conv["conversation_id"]}'
+                if audio_key in st.session_state:
+                    st.markdown("#### 🎧 Audio de la Llamada")
+                    st.audio(st.session_state[audio_key], format="audio/mpeg")
+                    
+                    # Botón para descargar
+                    st.download_button(
+                        label="💾 Descargar MP3",
+                        data=st.session_state[audio_key],
+                        file_name=f"llamada_{conv['conversation_id']}.mp3",
+                        mime="audio/mpeg",
+                        key=f"download_{i}"
+                    )
                 
                 # Mostrar detalle si está cargado
                 detalle_key = f'detalle_{conv["conversation_id"]}'
