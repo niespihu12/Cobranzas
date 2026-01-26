@@ -894,7 +894,7 @@ def main():
                         if not REQUESTS_AVAILABLE:
                             mensaje_container.error("Módulo 'requests' no disponible")
                         else:
-                            webhook_url = "https://workflows.aosinternational.us/webhook-test/AmericanBPO"
+                            webhook_url = "https://workflows.aosinternational.us/webhook/AmericanBPO"
                             cedula = str(row.get('cedula', ''))
                             
                             # Mostrar estado sin recargar
@@ -1167,6 +1167,15 @@ def main():
                             - Resumen: {metadata1.get('data_collection_results',{}).get('resumen_llamada',{}).get('value', 'N/A')}
                             - Sentimiento: {metadata1.get('data_collection_results',{}).get('analisis_sentimiento',{}).get('value', 'N/A')}    
                             """)
+                            with st.expander(
+                                f"Detalles del analisis del sentimiento"
+                            ):
+                                st.markdown(
+                                    f"{metadata1.get('data_collection_results',{}).get('analisis_sentimiento',{}).get('rationale', 'N/A')}"
+                                )
+                            
+                            
+                            
                         
                        
                     
