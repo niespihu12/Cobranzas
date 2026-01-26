@@ -1105,7 +1105,6 @@ def main():
                         if error_det:
                             status_container.error(f"❌ {error_det}")
                         else:
-                            print(detalle)
                             st.session_state[f'detalle_{conv["conversation_id"]}'] = detalle
                             status_container.success("✅ Cargado")
                 
