@@ -1634,17 +1634,51 @@ def main():
                             )
 
                         with col_meta2:
+                            # Obtener datos
+                            sentiment = metadata1.get('data_collection_results',{}).get('analisis_sentimiento',{}).get('value', 'N/A')
+                            sentiment_rationale = metadata1.get('data_collection_results',{}).get('analisis_sentimiento',{}).get('rationale', 'N/A')
+                            resumen = metadata1.get('data_collection_results',{}).get('resumen_llamada',{}).get('value', 'N/A')
+                            highlights = metadata1.get('data_collection_results',{}).get('highlights',{}).get('value', 'N/A')
+                            
+                            # Icono y color según sentimiento
+                            sentiment_map = {
+                                'positivo': ('😊', '10b981'),
+                                'negativo': ('😞', 'ef4444'),
+                                'neutro': ('😐', 'f59e0b'),
+                                'mixto': ('🤔', '3b82f6')
+                            }
+                            icon, color = sentiment_map.get(sentiment.lower(), ('❓', '64748b'))
+                            
+                            # Sentimiento como badge prominente
                             st.markdown(
                                 f"""
-                            **Datos claves de llamada:** 
-                            - Resumen: {metadata1.get('data_collection_results',{}).get('resumen_llamada',{}).get('value', 'N/A')}
-                            - Sentimiento: {metadata1.get('data_collection_results',{}).get('analisis_sentimiento',{}).get('value', 'N/A')}    
-                            """
+                                **Datos claves de llamada:**
+                                <div style="background:linear-gradient(135deg, #{color}22 0%, #{color}11 100%); 
+                                            border-left: 4px solid #{color}; 
+                                            padding: 12px; 
+                                            border-radius: 8px; 
+                                            margin: 12px 0;">
+                                    <div style="font-size: 1.2rem; font-weight: 700; color: #f1f5f9;">
+                                        {icon} Sentimiento: <span style="color: #{color}">{sentiment.upper()}</span>
+                                    </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
                             )
-                            with st.expander(f"Detalles del analisis del sentimiento"):
-                                st.markdown(
-                                    f"{metadata1.get('data_collection_results',{}).get('analisis_sentimiento',{}).get('rationale', 'N/A')}"
-                                )
+                            
+                            # Resumen en expander
+                            with st.expander("Resumen de la Llamada", expanded=False):
+                                st.markdown(resumen)
+                            
+                            # Análisis de sentimiento en expander
+                            if sentiment_rationale and sentiment_rationale != 'N/A':
+                                with st.expander("Análisis Detallado del Sentimiento", expanded=False):
+                                    st.markdown(sentiment_rationale)
+                            
+                            # Highlights en expander
+                            if highlights and highlights != 'N/A':
+                                with st.expander("Puntos Clave de la Llamada", expanded=False):
+                                    st.markdown(highlights)
 
                     # Variables dinámicas
                     if "conversation_initiation_client_data" in detalle:
