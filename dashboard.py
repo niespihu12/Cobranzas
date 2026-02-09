@@ -1677,7 +1677,7 @@ def main():
                             
                             # Highlights en expander
                             if highlights and highlights != 'N/A':
-                                with st.expander("Puntos Clave de la Llamada", expanded=False):
+                                with st.expander("Incapacidad de pago", expanded=False):
                                     st.markdown(highlights)
 
                     # Variables dinámicas
