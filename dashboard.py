@@ -1624,10 +1624,11 @@ def main():
                         col_meta1, col_meta2 = st.columns(2)
 
                         with col_meta1:
+                            phone_call = metadata.get('phone_call') or {}
                             st.markdown(
                                 f"""
                             **📊 Métricas:**
-                            - Teléfono: {metadata.get('phone_call', {}).get('external_number', 'N/A')}
+                            - Teléfono: {phone_call.get('external_number', 'N/A')}
                             - Idioma: {metadata.get('main_language', 'N/A')}
                             - Razón fin: {metadata.get('termination_reason', 'N/A')}
                             """
@@ -1647,7 +1648,8 @@ def main():
                                 'neutro': ('😐', 'f59e0b'),
                                 'mixto': ('🤔', '3b82f6')
                             }
-                            icon, color = sentiment_map.get(sentiment.lower(), ('❓', '64748b'))
+                            sentiment_str = str(sentiment).lower() if sentiment else 'n/a'
+                            icon, color = sentiment_map.get(sentiment_str, ('❓', '64748b'))
                             
                             # Sentimiento como badge prominente
                             st.markdown(
@@ -1659,7 +1661,7 @@ def main():
                                             border-radius: 8px; 
                                             margin: 12px 0;">
                                     <div style="font-size: 1.2rem; font-weight: 700; color: #f1f5f9;">
-                                        {icon} Sentimiento: <span style="color: #{color}">{sentiment.upper()}</span>
+                                        {icon} Sentimiento: <span style="color: #{color}">{sentiment_str.upper()}</span>
                                     </div>
                                 </div>
                                 """,
