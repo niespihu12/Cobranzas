@@ -152,7 +152,7 @@ st.markdown(
 # ============================================================================
 
 # Configuración Google Apps Script
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwjTxqCoL2euA72zP6LFf0segsKw1EOtoe-3K883xcGIqcdyGDOcu1NWHT_cWvjAFqv/exec"
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJ779TGN3j770xG9qYV_M_9ODJTqS481I_B4G7CwkcOIoD0jJz1a5eduMPXNsrwymG/exec"
 
 
 # Cache de 30 segundos para actualización frecuente
@@ -795,7 +795,7 @@ def main():
     m = calcular_metricas(df_f)
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
         [
             "📊 Resumen Ejecutivo",
             "🎯 Segmentación",
@@ -804,6 +804,8 @@ def main():
             "🔍 Explorar Datos",
             "📞 Gestionar Llamadas",
             "📋 Trazabilidad Llamadas",
+            "🗞️ Notificaciones"
+            
         ]
     )
 
@@ -1846,6 +1848,97 @@ def main():
                     )
 
                     st.plotly_chart(fig_estados, use_container_width=True)
+    with tab8:
+        st.markdown("### 🗞️ Notificaciones")
+        
+        # Inicializar session_state para notificaciones ocultas
+        if 'notificaciones_ocultas' not in st.session_state:
+            st.session_state.notificaciones_ocultas = set()
+        
+        # Cargar notificaciones desde Google Sheets
+        @st.cache_data(ttl=30, show_spinner=False)
+        def cargar_notificaciones():
+            if not REQUESTS_AVAILABLE:
+                return None, "Requests no disponible"
+            
+            try:
+                url = f"{APPS_SCRIPT_URL}?sheet=notificaciones"
+                response = requests.get(url, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        df = pd.DataFrame(data)
+                        # Ordenar por fecha descendente (más recientes primero)
+                        if 'Fecha' in df.columns:
+                            df = df.sort_values('Fecha', ascending=False)
+                        return df, None
+                    else:
+                        return None, "No hay notificaciones"
+                else:
+                    return None, f"Error {response.status_code}"
+            except Exception as e:
+                return None, str(e)
+        
+        # Cargar notificaciones
+        df_notif, error = cargar_notificaciones()
+        
+        if error:
+            st.warning(f"⚠️ {error}")
+        elif df_notif is None or len(df_notif) == 0:
+            st.info("📢 No hay notificaciones pendientes")
+        else:
+            # Filtrar solo las no leídas (campo Leido vacío) y no ocultas localmente
+            df_no_leidas = df_notif[
+                (df_notif['Leido'].isna() | (df_notif['Leido'] == '')) &
+                (~df_notif['Fecha'].isin(st.session_state.notificaciones_ocultas))
+            ].copy()
+            
+            # Métricas
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total Notificaciones", len(df_notif))
+            col2.metric("No Leídas", len(df_no_leidas))
+            col3.metric("Leídas", len(df_notif) - len(df_no_leidas))
+            
+            st.markdown("---")
+            
+            # Mostrar notificaciones no leídas
+            if len(df_no_leidas) == 0:
+                st.success("✅ No hay notificaciones pendientes")
+            else:
+                st.markdown(f"### 🔔 Notificaciones Pendientes ({len(df_no_leidas)})")
+                
+                # Mostrar como tabla con botones
+                for idx, row in df_no_leidas.iterrows():
+                    col1, col2, col3, col4 = st.columns([2, 2, 4, 1.5])
+                    
+                    with col1:
+                        st.markdown(f"**👤 {row.get('Nombre', 'N/A')}**")
+                    
+                    with col2:
+                        st.text(f"📅 {row.get('Fecha', 'N/A')}")
+                    
+                    with col3:
+                        st.text(row.get('Motivo', 'N/A'))
+                    
+                    with col4:
+                        if st.button("✅ Marcar Leído", key=f"read_{idx}", type="primary"):
+                            fecha = row.get('Fecha', '')
+                            # Ocultar inmediatamente en la UI
+                            st.session_state.notificaciones_ocultas.add(fecha)
+                            
+                            # Enviar POST al webhook con la fecha
+                            try:
+                                webhook_url = "https://workflows.aosinternational.us/webhook/mensaje-leido"
+                                payload = {"fecha": fecha}
+                                requests.post(webhook_url, json=payload, timeout=5)
+                            except:
+                                pass  # Silenciar errores para no interrumpir la UI
+                            
+                            st.rerun()
+                    
+                    st.markdown("---")
+
 
 
 # ============================================================================
